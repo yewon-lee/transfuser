@@ -402,11 +402,12 @@ class AutoPilot(MapAgent):
 
         for sensor in self.sensors():
             if 'camera' in sensor['type'] and 'map' not in sensor['id']:
-                Image.fromarray(tick_data[sensor['id']]).save(self.save_path / sensor['id'] / ('%04d.png' % frame))
+                if sensor['id']=='rgb_front':
+                    Image.fromarray(tick_data[sensor['id']]).save(self.save_path / sensor['id'] / ('%04d.png' % frame))
             elif 'lidar' in sensor['type']:
                 np.save(self.save_path / 'lidar' / ('%04d.npy' % frame), tick_data['lidar'], allow_pickle=True)
 
-        Image.fromarray(tick_data['topdown']).save(self.save_path / 'topdown' / ('%04d.png' % frame))
+        #Image.fromarray(tick_data['topdown']).save(self.save_path / 'topdown' / ('%04d.png' % frame))
         measurements_file = self.save_path / 'measurements' / ('%04d.json' % frame)
         f = open(measurements_file, 'w')
         json.dump(data, f, indent=4)
