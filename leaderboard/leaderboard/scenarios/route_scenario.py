@@ -382,6 +382,7 @@ class RouteScenario(BasicScenario):
             scenario_class = NUMBER_CLASS_TRANSLATION[definition['name']]
 
             # Create the other actors that are going to appear
+            definition['other_actors']=None
             if definition['other_actors'] is not None:
                 list_of_actor_conf_instances = self._get_actors_instances(definition['other_actors'])
             else:
@@ -452,16 +453,16 @@ class RouteScenario(BasicScenario):
         """
         # Create the background activity of the route
         town_amount = {
-            'Town01': 120,
-            'Town02': 100,
-            'Town03': 120,
-            'Town04': 200,
-            'Town05': 120,
-            'Town06': 150,
-            'Town07': 110,
-            'Town08': 180,
-            'Town09': 300,
-            'Town10HD': 120, # town10 doesn't load properly for some reason
+            'Town01': 0,
+            'Town02': 0,
+            'Town03': 0,
+            'Town04': 0,
+            'Town05': 0,
+            'Town06': 0,
+            'Town07': 0,
+            'Town08': 0,
+            'Town09': 0,
+            'Town10HD': 0, # town10 doesn't load properly for some reason
         }
 
         amount = town_amount[config.town] if config.town in town_amount else 0
