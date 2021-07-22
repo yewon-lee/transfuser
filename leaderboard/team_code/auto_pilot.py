@@ -311,7 +311,7 @@ class AutoPilot(MapAgent):
 
             for light in self._traffic_lights:
                 if light.id == affecting.id:
-                    return affecting
+                    light.set_state(carla.libcarla.TrafficLightState.Green)
 
         return None
 
