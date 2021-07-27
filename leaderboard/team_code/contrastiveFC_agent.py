@@ -30,43 +30,43 @@ def get_entry_point():
 
 class ContrastiveFC_Agent(autonomous_agent.AutonomousAgent):
 	def setup(self, path_to_conf_file):
-                # Import autopilot class (for throttle/brake later on)
-                AutoPilot = AutoPilot(autonomous_agent.AutonomousAgent)
-                self.track = autonomous_agent.Track.SENSORS
-                self.config_path = path_to_conf_file
-                self.step = -1
-                self.wall_start = time.time()
-                self.initialized = False
+		# Import autopilot class (for throttle/brake later on)
+        AutoPilot = AutoPilot(autonomous_agent.AutonomousAgent)
+		self.track = autonomous_agent.Track.SENSORS
+		self.config_path = path_to_conf_file
+		self.step = -1
+		self.wall_start = time.time()
+		self.initialized = False
 
-                self.input_buffer = {'rgb': deque(), 'lidar': deque()}
+		self.input_buffer = {'rgb': deque(), 'lidar': deque()}
 
-                # TODO: path to trained models
-                cvm_path = '/home/yewon/semi-hard-negative-mining/models/13-Hard-NegSampling-32Batch/bestContrastive.pt'
-                clm_path = '/home/yewon/semi-hard-negative-mining/models/13-Hard-NegSampling-32Batch/bestControl.pt'
+		# TODO: path to trained models
+		cvm_path = '/home/yewon/semi-hard-negative-mining/models/13-Hard-NegSampling-32Batch/bestContrastive.pt'
+		clm_path = '/home/yewon/semi-hard-negative-mining/models/13-Hard-NegSampling-32Batch/bestControl.pt'
 
-                
-                self.config = GlobalConfig() #TODO: may not need this config file
-                
-                # Load trained model
-                self.net_contrastive = ContrastiveLearningModel().cuda()
-                self.net_conrastive.load_state_dict(torch.load(cvm_path))
-                self.net_contrastive.eval()
-                self.net_controls = ControlsModel_FC().cuda()
-                self.net_controls.load_state_dict(torch.load(clm_path))
-                self.net_conrols.eval()
 
-                self.save_path = None
-                if SAVE_PATH is not None:
-                        now = datetime.datetime.now()
-                        string = pathlib.Path(os.environ['ROUTES']).stem + '_'
-                        string += '_'.join(map(lambda x: '%02d' % x, (now.month, now.day, now.hour, now.minute, now.second)))
+		self.config = GlobalConfig() #TODO: may not need this config file
 
-                        print (string)
-                        self.save_path = pathlib.Path(os.environ['SAVE_PATH']) / string
-                        self.save_path.mkdir(parents=True, exist_ok=False)
+		# Load trained model
+		self.net_contrastive = ContrastiveLearningModel().cuda()
+		self.net_conrastive.load_state_dict(torch.load(cvm_path))
+		self.net_contrastive.eval()
+		self.net_controls = ControlsModel_FC().cuda()
+		self.net_controls.load_state_dict(torch.load(clm_path))
+		self.net_conrols.eval()
 
-                        (self.save_path / 'rgb').mkdir()
-                        (self.save_path / 'meta').mkdir()
+		self.save_path = None
+		if SAVE_PATH is not None:
+				now = datetime.datetime.now()
+				string = pathlib.Path(os.environ['ROUTES']).stem + '_'
+				string += '_'.join(map(lambda x: '%02d' % x, (now.month, now.day, now.hour, now.minute, now.second)))
+
+				print (string)
+				self.save_path = pathlib.Path(os.environ['SAVE_PATH']) / string
+				self.save_path.mkdir(parents=True, exist_ok=False)
+
+				(self.save_path / 'rgb').mkdir()
+				(self.save_path / 'meta').mkdir()
 
 	def _init(self):
 		self._route_planner = RoutePlanner(4.0, 50.0)
@@ -137,16 +137,16 @@ class ContrastiveFC_Agent(autonomous_agent.AutonomousAgent):
 					}
 				]
 
-        def tick(self, input_data):
-                self.step += 1
-                #TODO: check dimensions
-                rgb = cv2.cvtColor(input_data['rgb'][1][:, :, :3], cv2.COLOR_BGR2RGB)
-                rgb_left = cv2.cvtColor(input_data['rgb_left'][1][:, :, :3], cv2.COLOR_BGR2RGB)
-                rgb_right = cv2.cvtColor(input_data['rgb_right'][1][:, :, :3], cv2.COLOR_BGR2RGB)
-                rgb_rear = cv2.cvtColor(input_data['rgb_rear'][1][:, :, :3], cv2.COLOR_BGR2RGB)
-                gps = input_data['gps'][1][:2]
-                speed = input_data['speed'][1]['speed']
-                compass = input_data['imu'][1][-1]
+	def tick(self, input_data):
+		self.step += 1
+		#TODO: check dimensions
+		rgb = cv2.cvtColor(input_data['rgb'][1][:, :, :3], cv2.COLOR_BGR2RGB)
+		rgb_left = cv2.cvtColor(input_data['rgb_left'][1][:, :, :3], cv2.COLOR_BGR2RGB)
+		rgb_right = cv2.cvtColor(input_data['rgb_right'][1][:, :, :3], cv2.COLOR_BGR2RGB)
+		rgb_rear = cv2.cvtColor(input_data['rgb_rear'][1][:, :, :3], cv2.COLOR_BGR2RGB)
+		gps = input_data['gps'][1][:2]
+		speed = input_data['speed'][1]['speed']
+		compass = input_data['imu'][1][-1]
 		lidar = input_data['lidar'][1][:, :3]
 
 		result = {'rgb': rgb,
@@ -200,7 +200,7 @@ class ContrastiveFC_Agent(autonomous_agent.AutonomousAgent):
 
 			self.input_buffer['lidar'].append(tick_data['lidar'])
 			self.input_buffer['gps'].append(tick_data['gps'])
-                        self.input_buffer['thetas'].append(tick_data['compass']) # TODO: look into thetas. I think I removed a couple theta lines
+			self.input_buffer['thetas'].append(tick_data['compass']) # TODO: look into thetas. I think I removed a couple theta lines
 
 			control = carla.VehicleControl()
 			control.steer = 0.0
@@ -222,7 +222,7 @@ class ContrastiveFC_Agent(autonomous_agent.AutonomousAgent):
 		self.input_buffer['rgb'].append(rgb.to('cuda', dtype=torch.float32))
 		encoding.append(self.net.image_encoder(list(self.input_buffer['rgb'])))
 	
-                """
+		"""
 		if not self.config.ignore_sides: # ignore = True
 			rgb_left = torch.from_numpy(scale_and_crop_image(Image.fromarray(tick_data['rgb_left']), scale=self.config.scale, crop=self.config.input_resolution)).unsqueeze(0)
 			self.input_buffer['rgb_left'].popleft()
@@ -266,11 +266,11 @@ class ContrastiveFC_Agent(autonomous_agent.AutonomousAgent):
 		#steer, throttle, brake, metadata = self.net.control_pid(pred_wp, gt_velocity)
 		#self.pid_metadata = metadata
 
-                # Get steering from network & throttle/brake from autopilot
-                steer = self.net_controls(self.input_data['rgb'], self.input_data['lidar'])
-                near_node, near_command = AutoPilot._waypoint_planner.run_step(gps) #TODO: haven't figured out where these are from
-                far_node, far_command = Autopilot._command_planner.run_step(gps) # TODO
-                _, throttle, brake, _ = AutoPilot._get_control_autopilot(near_node, far_node, tick_data)
+		# Get steering from network & throttle/brake from autopilot
+		steer = self.net_controls(self.input_data['rgb'], self.input_data['lidar'])
+		near_node, near_command = AutoPilot._waypoint_planner.run_step(gps) #TODO: haven't figured out where these are from
+		far_node, far_command = Autopilot._command_planner.run_step(gps) # TODO
+		_, throttle, brake, _ = AutoPilot._get_control_autopilot(near_node, far_node, tick_data)
 
 		control = carla.VehicleControl()
 		control.steer = float(steer)
