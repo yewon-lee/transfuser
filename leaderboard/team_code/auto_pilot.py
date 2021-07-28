@@ -170,6 +170,39 @@ class AutoPilot(MapAgent):
 
         return steer, throttle, brake, target_speed
 
+    def _get_control_autopilot(self, target, far_target, tick_data):
+
+        """Same as _get_control() but want to import this into ConrolsFC_agent"""
+
+        pos = self._get_position(tick_data)
+        theta = tick_data['compass']
+        speed = tick_data['speed']
+
+        # Steering.
+        angle_unnorm = self._get_angle_to(pos, theta, target)
+        angle = angle_unnorm / 90
+
+        steer = self._turn_controller.step(angle)
+        steer = np.clip(steer, -1.0, 1.0)
+        steer = round(steer, 3)
+
+        # Acceleration.
+        angle_far_unnorm = self._get_angle_to(pos, theta, far_target)
+        should_slow = abs(angle_far_unnorm) > 45.0 or abs(angle_unnorm) > 5.0
+        target_speed = 4.0 if should_slow else 7.0
+        brake = self._should_brake()
+        target_speed = target_speed if not brake else 0.0
+
+        delta = np.clip(target_speed - speed, 0.0, 0.25)
+        throttle = self._speed_controller.step(delta)
+        throttle = np.clip(throttle, 0.0, 0.75)
+
+        if brake:
+            steer *= 0.5
+            throttle = 0.0
+
+        return steer, throttle, brake, target_speed
+
     def run_step(self, input_data, timestamp):
         if not self.initialized:
             self._init()
