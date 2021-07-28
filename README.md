@@ -30,6 +30,7 @@ cd transfuser
 conda create -n transfuser python=3.7
 pip3 install -r requirements.txt
 conda activate transfuser
+conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
 ```
 
 Download and setup CARLA 0.9.10.1
