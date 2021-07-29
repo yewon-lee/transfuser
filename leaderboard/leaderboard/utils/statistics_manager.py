@@ -198,7 +198,7 @@ class StatisticsManager(object):
             route_record.status = 'Failed'
             if failure:
                 route_record.status += ' - ' + failure
-
+        breakpoint()
         return route_record
 
     def compute_global_statistics(self, total_routes):

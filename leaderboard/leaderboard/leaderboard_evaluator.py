@@ -96,6 +96,10 @@ class LeaderboardEvaluator(object):
         sys.path.insert(0, os.path.dirname(args.agent))
         self.module_agent = importlib.import_module(module_name)
 
+        # Load autopilot 
+        sys.path.insert(0, os.path.dirname('auto_pilot'))
+        self.module_agent_autopilot = importlib.import_module('auto_pilot')
+
         # Create the ScenarioManager
         self.manager = ScenarioManager(args.timeout, args.debug > 1)
 
@@ -234,6 +238,7 @@ class LeaderboardEvaluator(object):
         Computes and saved the simulation statistics
         """
         # register statistics
+        breakpoint()
         current_stats_record = self.statistics_manager.compute_route_statistics(
             config,
             self.manager.scenario_duration_system,
@@ -265,8 +270,12 @@ class LeaderboardEvaluator(object):
         try:
             self._agent_watchdog.start()
             agent_class_name = getattr(self.module_agent, 'get_entry_point')()
+            print("Getting agent instance")
+
             self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
             config.agent = self.agent_instance
+
+            self.agent_instance_autopilot = getattr(self.module_agent_autopilot, agent_class_name)(args.agent_config)
 
             # Check and store the sensors
             if not self.sensors:
@@ -325,7 +334,7 @@ class LeaderboardEvaluator(object):
             # Load scenario and run it
             if args.record:
                 self.client.start_recorder("{}/{}_rep{}.log".format(args.record, config.name, config.repetition_index))
-            self.manager.load_scenario(scenario, self.agent_instance, config.repetition_index)
+            self.manager.load_scenario(scenario, self.agent_instance, config.repetition_index, self.agent_instance_autopilot)
 
         except Exception as e:
             # The scenario is wrong -> set the ejecution to crashed and stop
@@ -411,7 +420,9 @@ class LeaderboardEvaluator(object):
             config = route_indexer.next()
 
             # run
+            breakpoint()
             self._load_and_run_scenario(args, config)
+            breakpoint()
 
             for obj in gc.get_objects():
                 try:
@@ -419,8 +430,9 @@ class LeaderboardEvaluator(object):
                         print(type(obj), obj.size())
                 except:
                     pass
-
+            breakpoint()
             route_indexer.save_state(args.checkpoint)
+            breakpoint()
 
         # save global statistics
         print("\033[1m> Registering the global statistics\033[0m")
@@ -461,7 +473,6 @@ def main():
     # agent-related options
     parser.add_argument("-a", "--agent", type=str, help="Path to Agent's py file to evaluate", required=True)
     parser.add_argument("--agent-config", type=str, help="Path to Agent's configuration file", default="")
-
     parser.add_argument("--track", type=str, default='SENSORS', help="Participation track: SENSORS, MAP")
     parser.add_argument('--resume', type=bool, default=False, help='Resume execution from last checkpoint?')
     parser.add_argument("--checkpoint", type=str,

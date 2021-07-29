@@ -23,7 +23,7 @@
             "status": "Completed"
         },
         "progress": [
-            84,
+            94,
             142
         ],
         "records": [
@@ -2237,9 +2237,9 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 11.60000017285347,
-                    "duration_system": 71.86570692062378,
-                    "route_length": 58.98999813471111
+                    "duration_game": 9.80000014603138,
+                    "duration_system": 56.763113498687744,
+                    "route_length": 46.37451955434601
                 },
                 "route_id": "RouteScenario_84",
                 "scores": {
@@ -2263,9 +2263,9 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 9.55000014230609,
-                    "duration_system": 54.59475636482239,
-                    "route_length": 33.276969409679324
+                    "duration_game": 7.600000113248825,
+                    "duration_system": 42.50326728820801,
+                    "route_length": 27.405544340143855
                 },
                 "route_id": "RouteScenario_85",
                 "scores": {
@@ -2289,9 +2289,9 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 10.750000160187483,
-                    "duration_system": 73.00203084945679,
-                    "route_length": 53.045182922081345
+                    "duration_game": 7.600000113248825,
+                    "duration_system": 46.95414662361145,
+                    "route_length": 28.431966737023703
                 },
                 "route_id": "RouteScenario_86",
                 "scores": {
@@ -2315,9 +2315,9 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 11.60000017285347,
-                    "duration_system": 74.87201833724976,
-                    "route_length": 38.41843704144435
+                    "duration_game": 8.25000012293458,
+                    "duration_system": 49.20058989524841,
+                    "route_length": 25.163401800755384
                 },
                 "route_id": "RouteScenario_87",
                 "scores": {
@@ -2341,9 +2341,9 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 11.60000017285347,
-                    "duration_system": 72.67775368690491,
-                    "route_length": 58.98999813471111
+                    "duration_game": 7.000000104308128,
+                    "duration_system": 52.652942419052124,
+                    "route_length": 19.934125850255715
                 },
                 "route_id": "RouteScenario_88",
                 "scores": {
@@ -2367,9 +2367,9 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 9.55000014230609,
-                    "duration_system": 53.93425464630127,
-                    "route_length": 33.276969409679324
+                    "duration_game": 8.400000125169754,
+                    "duration_system": 46.77143096923828,
+                    "route_length": 26.08423688791095
                 },
                 "route_id": "RouteScenario_89",
                 "scores": {
@@ -2393,9 +2393,9 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 9.55000014230609,
-                    "duration_system": 54.07929849624634,
-                    "route_length": 33.276969409679324
+                    "duration_game": 8.75000013038516,
+                    "duration_system": 47.738603591918945,
+                    "route_length": 24.83877883174862
                 },
                 "route_id": "RouteScenario_90",
                 "scores": {
@@ -2419,17 +2419,17 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 10.400000154972076,
-                    "duration_system": 70.09555053710938,
-                    "route_length": 32.406149378569935
+                    "duration_game": 0.800000011920929,
+                    "duration_system": 4.985921621322632,
+                    "route_length": 24.752515569747047
                 },
                 "route_id": "RouteScenario_91",
                 "scores": {
-                    "score_composed": 100.0,
+                    "score_composed": 0.0,
                     "score_penalty": 1.0,
-                    "score_route": 100.0
+                    "score_route": 0.0
                 },
-                "status": "Completed"
+                "status": "Failed"
             },
             {
                 "index": 92,
@@ -2438,26 +2438,24 @@
                     "collisions_pedestrian": [],
                     "collisions_vehicle": [],
                     "outside_route_lanes": [],
-                    "red_light": [
-                        "Agent ran a red light 24403 at (x=-17.76, y=152.65, z=0.18)"
-                    ],
+                    "red_light": [],
                     "route_dev": [],
                     "route_timeout": [],
                     "stop_infraction": [],
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 9.500000141561031,
-                    "duration_system": 55.82802128791809,
-                    "route_length": 44.33513878360613
+                    "duration_game": 0.05000000074505806,
+                    "duration_system": 0.34387707710266113,
+                    "route_length": 24.39999624939118
                 },
                 "route_id": "RouteScenario_92",
                 "scores": {
-                    "score_composed": 70.0,
-                    "score_penalty": 0.7,
-                    "score_route": 100.0
+                    "score_composed": 0.0,
+                    "score_penalty": 1.0,
+                    "score_route": 0
                 },
-                "status": "Completed"
+                "status": "Failed"
             },
             {
                 "index": 93,
@@ -2473,17 +2471,17 @@
                     "vehicle_blocked": []
                 },
                 "meta": {
-                    "duration_game": 37.45000055804849,
-                    "duration_system": 205.17387652397156,
-                    "route_length": 46.70356442502568
+                    "duration_game": 0.0,
+                    "duration_system": 0.0,
+                    "route_length": 23.96483305674096
                 },
                 "route_id": "RouteScenario_93",
                 "scores": {
-                    "score_composed": 100.0,
+                    "score_composed": 0.0,
                     "score_penalty": 1.0,
-                    "score_route": 100.0
+                    "score_route": 0.0
                 },
-                "status": "Completed"
+                "status": "Failed - Agent couldn't be set up"
             },
             {
                 "index": 94,

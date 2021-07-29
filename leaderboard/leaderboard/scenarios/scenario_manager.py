@@ -96,13 +96,14 @@ class ScenarioManager(object):
         self.end_system_time = None
         self.end_game_time = None
 
-    def load_scenario(self, scenario, agent, rep_number):
+    def load_scenario(self, scenario, agent, rep_number, agent_autopilot):
         """
         Load a new scenario
         """
 
         GameTime.restart()
         self._agent = AgentWrapper(agent)
+        self._autopilot = AgentWrapper(agent_autopilot)
         self.scenario_class = scenario
         self.scenario = scenario.scenario
         self.scenario_tree = self.scenario.scenario_tree
@@ -114,6 +115,7 @@ class ScenarioManager(object):
         # py_trees.display.render_dot_tree(self.scenario_tree)
 
         self._agent.setup_sensors(self.ego_vehicles[0], self._debug_mode)
+        self._autopilot.setup_sensors(self.ego_vehicles[0], self._debug_mode)
 
     def run_scenario(self):
         """
@@ -150,6 +152,7 @@ class ScenarioManager(object):
 
             try:
                 ego_action = self._agent()
+                print("Agent")
 
             # Special exception inside the agent that isn't caused by the agent
             except SensorReceivedNoData as e:
