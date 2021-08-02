@@ -152,6 +152,7 @@ class ScenarioManager(object):
 
             try:
                 ego_action = self._agent()
+                #ego_action_ap = self._autopilot()
                 print("Agent")
 
             # Special exception inside the agent that isn't caused by the agent

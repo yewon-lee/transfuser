@@ -238,7 +238,6 @@ class LeaderboardEvaluator(object):
         Computes and saved the simulation statistics
         """
         # register statistics
-        breakpoint()
         current_stats_record = self.statistics_manager.compute_route_statistics(
             config,
             self.manager.scenario_duration_system,
@@ -274,8 +273,7 @@ class LeaderboardEvaluator(object):
 
             self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
             config.agent = self.agent_instance
-
-            self.agent_instance_autopilot = getattr(self.module_agent_autopilot, agent_class_name)(args.agent_config)
+            self.agent_instance_autopilot = getattr(self.module_agent_autopilot, 'AutoPilot')(args.agent_config)
 
             # Check and store the sensors
             if not self.sensors:
@@ -318,8 +316,13 @@ class LeaderboardEvaluator(object):
 
         # Load the world and the scenario
         try:
+            print("Loading and waiting for world")
             self._load_and_wait_for_world(args, config.town, config.ego_vehicles)
+            
+            print("Preparing for ego vehicles")
             self._prepare_ego_vehicles(config.ego_vehicles, False)
+            
+            print("Setting scenario")
             scenario = RouteScenario(world=self.world, config=config, debug_mode=args.debug)
             self.statistics_manager.set_scenario(scenario.scenario)
 
@@ -334,6 +337,7 @@ class LeaderboardEvaluator(object):
             # Load scenario and run it
             if args.record:
                 self.client.start_recorder("{}/{}_rep{}.log".format(args.record, config.name, config.repetition_index))
+            print("Loading scenario")
             self.manager.load_scenario(scenario, self.agent_instance, config.repetition_index, self.agent_instance_autopilot)
 
         except Exception as e:
@@ -420,9 +424,9 @@ class LeaderboardEvaluator(object):
             config = route_indexer.next()
 
             # run
-            breakpoint()
+            #breakpoint()
             self._load_and_run_scenario(args, config)
-            breakpoint()
+            #breakpoint()
 
             for obj in gc.get_objects():
                 try:
@@ -430,9 +434,9 @@ class LeaderboardEvaluator(object):
                         print(type(obj), obj.size())
                 except:
                     pass
-            breakpoint()
+            #breakpoint()
             route_indexer.save_state(args.checkpoint)
-            breakpoint()
+            #breakpoint()
 
         # save global statistics
         print("\033[1m> Registering the global statistics\033[0m")
