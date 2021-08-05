@@ -257,23 +257,26 @@ class ContrastiveFC_Agent(MapAgent):
         curr_theta = data['compass']
         curr_x, curr_y = data['gps']
         #lidar_point_cloud[:,1] *= -1 # inverts x, y
-        print("size lidar:", lidar_point_cloud.shape, lidar_point_cloud[:,:3].shape)
-        lidar_point_cloud = lidar_point_cloud[:,:3]
+        #print("size lidar:", lidar_point_cloud.shape, lidar_point_cloud[:,:3].shape)
+        #lidar_point_cloud = lidar_point_cloud[:,:3]
         #print("lidar pcd:", lidar_point_cloud.shape)
         #lidar_transformed = transform_2d_points(lidar_point_cloud, np.pi/2-curr_theta, -curr_x, -curr_y, np.pi/2-ego_theta, -ego_x, -ego_y)
-        lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution))#.unsqueeze(0) 
+        lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution)).unsqueeze(0) 
         
         # Contrastive + FC steering
-        steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32))
-        print("type steer:", type(steer), steer.shape)
+        steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32)).item()
+        #print("type steer:", type(steer), steer.shape)
 
         # Assign values to control
         self.autopilot = False
         control = carla.VehicleControl()
         if self.autopilot == True:
             steer = steer_AP
+            print("steer", steer)
             control.steer = steer + 1e-2 * np.random.randn()
         else:
+            #print("steer shape:", steer.shape)
+            #print("steer", steer.item(), type(steer.item()))
             control.steer = steer
         control.throttle = throttle
         control.brake = float(brake)

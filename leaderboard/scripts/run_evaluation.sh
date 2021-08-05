@@ -11,8 +11,8 @@ export PYTHONPATH=$PYTHONPATH:scenario_runner
 
 export LEADERBOARD_ROOT=leaderboard
 export CHALLENGE_TRACK_CODENAME=SENSORS
-export PORT=2002 # same as the carla server port
-export TM_PORT=8001 # port for traffic manager, required when spawning multiple servers/clients
+export PORT=2000 # same as the carla server port
+export TM_PORT=8011 # port for traffic manager, required when spawning multiple servers/clients
 export DEBUG_CHALLENGE=0
 export REPETITIONS=1 # multiple evaluation runs
 export ROUTES=leaderboard/data/training_routes/routes_town04_short.xml
