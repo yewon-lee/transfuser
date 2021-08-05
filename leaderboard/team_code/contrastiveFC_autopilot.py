@@ -143,7 +143,12 @@ class ContrastiveFC_Agent(MapAgent):
         super()._init()
 
         # Toggle this to set autopilot/contrastiveFC to control 
-        self.autopilot = True
+        self.autopilot = False
+
+        # Initialize variables for intervention
+        self.prev_intervention_time = 0
+        self.takeovertime = 3 # what we used in original code base
+        self.prev_wp = None
 
         self._turn_controller = PIDController(K_P=1.25, K_I=0.75, K_D=0.3, n=40)
         self._speed_controller = PIDController(K_P=5.0, K_I=0.5, K_D=1.0, n=40)
@@ -232,14 +237,6 @@ class ContrastiveFC_Agent(MapAgent):
         if not self.initialized:
             self._init()
 
-        # change weather for visual diversity
-        #if self.step % 10 == 0:
-        #    index = random.choice(range(len(WEATHERS)))
-        #    self.weather_id = WEATHERS_IDS[index]
-        #    weather = WEATHERS[WEATHERS_IDS[index]]
-        #    print (self.weather_id, weather)
-        #    self._world.set_weather(weather)
-
         data = self.tick(input_data)
         gps = self._get_position(data)
 
@@ -264,19 +261,38 @@ class ContrastiveFC_Agent(MapAgent):
         lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution)).unsqueeze(0) 
         
         # Contrastive + FC steering
-        steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32)).item()
-        #print("type steer:", type(steer), steer.shape)
+        #steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32)).item()
+        wp = self._world.get_map().get_waypoint(self._vehicle.get_location(), project_to_road=True, lane_type=(carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk))
+        #print(type(wp.lane_type), wp.lane_type)
+       
+        print("Landmarks:", wp.get_landmarks(distance=0.5))
+        
+ 
+        # Determine if autopilot must take over
+        if time.time() - self.prev_intervention_time < self.takeovertime:
+            self.autopilot = True
+            steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data) 
+        elif (str(wp.lane_type) != 'Driving') or (self.prev_wp == wp):
+            self.autopilot = True
+            steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
+            self.prev_intervention_time = time.time()
+        else:
+            self.autopilot = False
+            throttle = 0
+            if data['speed'] < 20:
+                throttle = 0.5
+            steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32)).item()
+
+        self.prev_wp = wp
 
         # Assign values to control
-        self.autopilot = False
         control = carla.VehicleControl()
         if self.autopilot == True:
+            print("Intervention: autopilot taking over")
             steer = steer_AP
-            print("steer", steer)
             control.steer = steer + 1e-2 * np.random.randn()
         else:
-            #print("steer shape:", steer.shape)
-            #print("steer", steer.item(), type(steer.item()))
+            print("Our policy is driving")
             control.steer = steer
         control.throttle = throttle
         control.brake = float(brake)
