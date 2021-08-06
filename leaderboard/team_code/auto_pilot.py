@@ -19,25 +19,25 @@ SAVE_PATH = os.environ.get('SAVE_PATH', None)
 
 WEATHERS = {
         'ClearNoon': carla.WeatherParameters.ClearNoon,
-        'ClearSunset': carla.WeatherParameters.ClearSunset,
+        #'ClearSunset': carla.WeatherParameters.ClearSunset,
 
-        'CloudyNoon': carla.WeatherParameters.CloudyNoon,
-        'CloudySunset': carla.WeatherParameters.CloudySunset,
+        #'CloudyNoon': carla.WeatherParameters.CloudyNoon,
+        #'CloudySunset': carla.WeatherParameters.CloudySunset,
 
-        'WetNoon': carla.WeatherParameters.WetNoon,
-        'WetSunset': carla.WeatherParameters.WetSunset,
+        #'WetNoon': carla.WeatherParameters.WetNoon,
+        #'WetSunset': carla.WeatherParameters.WetSunset,
 
-        'MidRainyNoon': carla.WeatherParameters.MidRainyNoon,
-        'MidRainSunset': carla.WeatherParameters.MidRainSunset,
+        #'MidRainyNoon': carla.WeatherParameters.MidRainyNoon,
+        #'MidRainSunset': carla.WeatherParameters.MidRainSunset,
 
-        'WetCloudyNoon': carla.WeatherParameters.WetCloudyNoon,
-        'WetCloudySunset': carla.WeatherParameters.WetCloudySunset,
+        #'WetCloudyNoon': carla.WeatherParameters.WetCloudyNoon,
+        #'WetCloudySunset': carla.WeatherParameters.WetCloudySunset,
 
-        'HardRainNoon': carla.WeatherParameters.HardRainNoon,
-        'HardRainSunset': carla.WeatherParameters.HardRainSunset,
+        #'HardRainNoon': carla.WeatherParameters.HardRainNoon,
+        #'HardRainSunset': carla.WeatherParameters.HardRainSunset,
 
-        'SoftRainNoon': carla.WeatherParameters.SoftRainNoon,
-        'SoftRainSunset': carla.WeatherParameters.SoftRainSunset,
+        #'SoftRainNoon': carla.WeatherParameters.SoftRainNoon,
+        #'SoftRainSunset': carla.WeatherParameters.SoftRainSunset,
 }
 WEATHERS_IDS = list(WEATHERS)
 
