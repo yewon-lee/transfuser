@@ -23,25 +23,6 @@ SAVE_PATH = os.environ.get('SAVE_PATH', None)
 
 WEATHERS = {
         'ClearNoon': carla.WeatherParameters.ClearNoon,
-        #'ClearSunset': carla.WeatherParameters.ClearSunset,
-
-        #'CloudyNoon': carla.WeatherParameters.CloudyNoon,
-        #'CloudySunset': carla.WeatherParameters.CloudySunset,
-
-        #'WetNoon': carla.WeatherParameters.WetNoon,
-        #'WetSunset': carla.WeatherParameters.WetSunset,
-
-        #'MidRainyNoon': carla.WeatherParameters.MidRainyNoon,
-        #'MidRainSunset': carla.WeatherParameters.MidRainSunset,
-
-        #'WetCloudyNoon': carla.WeatherParameters.WetCloudyNoon,
-        #'WetCloudySunset': carla.WeatherParameters.WetCloudySunset,
-
-        #'HardRainNoon': carla.WeatherParameters.HardRainNoon,
-        #'HardRainSunset': carla.WeatherParameters.HardRainSunset,
-
-        #'SoftRainNoon': carla.WeatherParameters.SoftRainNoon,
-        #'SoftRainSunset': carla.WeatherParameters.SoftRainSunset,
 }
 WEATHERS_IDS = list(WEATHERS)
 
@@ -102,8 +83,6 @@ class ContrastiveFC_Agent(MapAgent):
     def setup(self, path_to_conf_file):
         super().setup(path_to_conf_file)
         self.weather_id = None
-        #self.track = autonomous_agent.Track.SENSORS
-
 
         # Config file path for contrastiveFC (specs for data transforms)
         self.config_path = path_to_conf_file
@@ -137,6 +116,8 @@ class ContrastiveFC_Agent(MapAgent):
                         (self.save_path / sensor['id']).mkdir(parents=True, exist_ok=True)
             (self.save_path / 'measurements').mkdir(parents=True, exist_ok=True)
             (self.save_path / 'topdown').mkdir(parents=True, exist_ok=True)
+            
+            self.start_time = time.time()
 
             
     def _init(self):
@@ -144,11 +125,18 @@ class ContrastiveFC_Agent(MapAgent):
 
         # Toggle this to set autopilot/contrastiveFC to control 
         self.autopilot = False
+        
+        # Initialize metrics
+        self.cte = 0
+        self.autonomy = 0
+        self.interventions = 0
 
         # Initialize variables for intervention
         self.prev_intervention_time = 0
         self.takeovertime = 3 # what we used in original code base
         self.prev_wp = None
+        self.interventions = 0
+        self.episode_time_len = 0
 
         self._turn_controller = PIDController(K_P=1.25, K_I=0.75, K_D=0.3, n=40)
         self._speed_controller = PIDController(K_P=5.0, K_I=0.5, K_D=1.0, n=40)
@@ -232,8 +220,17 @@ class ContrastiveFC_Agent(MapAgent):
             throttle = 0.0
 
         return steer, throttle, brake, target_speed
+        
+    def crossTrackErrorNew(self, vehicle_wp, ref_wp):
+    	min_distance = 10000
+    	distance = np.linalg.norm(ref_wp - vehicle_wp)
+    	min_distance = min(distance, min_distance)
+    	return min_distance
 
     def run_step(self, input_data, timestamp):
+    
+    	#self.start_time = time.time()
+    	
         if not self.initialized:
             self._init()
 
@@ -249,34 +246,40 @@ class ContrastiveFC_Agent(MapAgent):
         # RGB and lidar data retrieval and processing
         # TODO: make sure transforms are consistent with training data transforms
         #print("Keys:", data.items())
-        rgb = torch.from_numpy(scale_and_crop_image(Image.fromarray(data['rgb_front']), scale=self.config.scale, crop=self.config.input_resolution)).unsqueeze(0)
-        lidar_point_cloud = data['lidar']
-        curr_theta = data['compass']
-        curr_x, curr_y = data['gps']
+        #rgb = torch.from_numpy(scale_and_crop_image(Image.fromarray(data['rgb_front']), scale=self.config.scale, crop=self.config.input_resolution)).unsqueeze(0)
+        #lidar_point_cloud = data['lidar']
+        #curr_theta = data['compass']
+        #curr_x, curr_y = data['gps']
         #lidar_point_cloud[:,1] *= -1 # inverts x, y
         #print("size lidar:", lidar_point_cloud.shape, lidar_point_cloud[:,:3].shape)
         #lidar_point_cloud = lidar_point_cloud[:,:3]
         #print("lidar pcd:", lidar_point_cloud.shape)
         #lidar_transformed = transform_2d_points(lidar_point_cloud, np.pi/2-curr_theta, -curr_x, -curr_y, np.pi/2-ego_theta, -ego_x, -ego_y)
-        lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution)).unsqueeze(0) 
+        #lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution)).unsqueeze(0) 
         
-        # Contrastive + FC steering
-        #steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32)).item()
+        # Waypoints of vehicle & reference (center of lane closest to vehicle)
         wp = self._world.get_map().get_waypoint(self._vehicle.get_location(), project_to_road=True, lane_type=(carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk))
-        #print(type(wp.lane_type), wp.lane_type)
-       
-        print("Landmarks:", wp.get_landmarks(distance=0.5))
-        
- 
+        wp_vehicle = self._world.get_map().get_waypoint(self._vehicle.get_location(), project_to_road=False)
+
+        vehicle_wp_array = np.array((wp_vehicle.transform.location.x, wp_vehicle.transform.location.y, wp_vehicle.transform.location.z))
+        ref_wp_array = np.array((wp.transform.location.x, wp.transform.location.y, wp.transform.location.z))
+         
         # Determine if autopilot must take over
         if time.time() - self.prev_intervention_time < self.takeovertime:
             self.autopilot = True
             steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data) 
         elif (str(wp.lane_type) != 'Driving') or (self.prev_wp == wp):
+            print("Intervention: autopilot taking over")
+            self.interventions += 1
             self.autopilot = True
             steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
             self.prev_intervention_time = time.time()
         else:
+            # retrieve rgb and lidar data
+            rgb = torch.from_numpy(scale_and_crop_image(Image.fromarray(data['rgb_front']), scale=self.config.scale, crop=self.config.input_resolution)).unsqueeze(0)
+            lidar_point_cloud = data['lidar']
+            lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution)).unsqueeze(0) 
+            # predict controls
             self.autopilot = False
             throttle = 0
             if data['speed'] < 20:
@@ -288,16 +291,20 @@ class ContrastiveFC_Agent(MapAgent):
         # Assign values to control
         control = carla.VehicleControl()
         if self.autopilot == True:
-            print("Intervention: autopilot taking over")
             steer = steer_AP
             control.steer = steer + 1e-2 * np.random.randn()
         else:
-            print("Our policy is driving")
             control.steer = steer
         control.throttle = throttle
         control.brake = float(brake)
+        
+        #print("step number", self.step)
+        
+        # Compute cte 
+        self.cte += self.crossTrackErrorNew(vehicle_wp_array, ref_wp_array) # cross track error      
 
         if self.step % 10 == 0 and self.save_path is not None:
+            self.episode_time_len += time.time() - self.start_time # total cumulated simulation runtime
             self.save(far_node, near_command, steer, throttle, brake, target_speed, data)
 
         return control
@@ -514,4 +521,22 @@ class ContrastiveFC_Agent(MapAgent):
         f = open(measurements_file, 'w')
         json.dump(data, f, indent=4)
         f.close()
+        
+        # Save metrics (cte, autonomy, interventions)
+        autonomy = (1 - (self.interventions * self.takeovertime) / self.episode_time_len) * 100
+        print("Autonomy: {}".format(autonomy))
+        print("Result - Number of interventions: {}".format(self.interventions))
+        print("Cross track error:{}".format(self.cte/self.step))
+        
+        results = "Number of Interventions: {}\n \
+        	Autonomy: {}\n \
+        	CTE: {}\n".format(self.interventions, autonomy, self.cte/self.step)
+        result_filepath = self.save_path /'drive_results.txt'
+        print("Saving results to", result_filepath)
+        with open(result_filepath,'w') as fp:
+        	fp.write(results)
+        fp.close()
+        	
+    
+        
         
