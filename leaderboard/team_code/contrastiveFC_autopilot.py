@@ -106,16 +106,13 @@ class ContrastiveFC_Agent(MapAgent):
             string += '_'.join(map(lambda x: '%02d' % x, (now.month, now.day, now.hour, now.minute, now.second)))
 
             print(string)
-
+            
+            # Create the save directories
             self.save_path = pathlib.Path(os.environ['SAVE_PATH']) / string
             self.save_path.mkdir(parents=True, exist_ok=True)
-
-            for sensor in self.sensors():
-                if 'camera' in sensor['type'] or 'lidar' in sensor['type']:   
-                    if 'map' not in sensor['id']:
-                        (self.save_path / sensor['id']).mkdir(parents=True, exist_ok=True)
+            (self.save_path / 'rgb_front').mkdir(parents=True, exist_ok=True)             
+            (self.save_path / 'lidar').mkdir(parents=True, exist_ok=True)
             (self.save_path / 'measurements').mkdir(parents=True, exist_ok=True)
-            (self.save_path / 'topdown').mkdir(parents=True, exist_ok=True)
             
             self.start_time = time.time()
 
