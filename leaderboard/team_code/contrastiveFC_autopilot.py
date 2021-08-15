@@ -10,6 +10,7 @@ import numpy as np
 import cv2
 import carla
 from PIL import Image
+import weakref
 
 
 from team_code.map_agent import MapAgent
@@ -17,6 +18,8 @@ from team_code.pid_controller import PIDController
 from contrastiveFC.data import scale_and_crop_image, transform_2d_points, lidar_to_histogram_features
 from contrastiveFC.config import GlobalConfig
 from contrastiveFC.models import ContrastiveLearningModel, ControlsModel_FC
+from leaderboard.autoagents.agent_wrapper import AgentWrapper
+import leaderboard.autoagents.agent_wrapper
 
 SAVE_PATH = os.environ.get('SAVE_PATH', None)
 
@@ -89,8 +92,8 @@ class ContrastiveFC_Agent(MapAgent):
         self.config = GlobalConfig()
 
         # Contrastive+FC Model paths
-        cvm_path = '/home/yewon/semi-hard-negative-mining/models/13-Hard-NegSampling-32Batch/bestContrastive.pt'
-        clm_path = '/home/yewon/semi-hard-negative-mining/models/13-Hard-NegSampling-32Batch/bestControl.pt'
+        cvm_path = '/home/yewon/new-data-dl/models/ImitationLearning/bestContrastive.pt'
+        clm_path = '/home/yewon/new-data-dl/models/ImitationLearning/bestControl.pt'
 
         # Load trained models
         self.net_contrastive = ContrastiveLearningModel().cuda()
@@ -99,6 +102,7 @@ class ContrastiveFC_Agent(MapAgent):
         self.net_controls = ControlsModel_FC(self.net_contrastive).cuda()
         self.net_controls.load_state_dict(torch.load(clm_path))
         self.net_controls.eval()
+        self.prev_lane_intervention = 0
 
         if SAVE_PATH is not None:
             now = datetime.datetime.now()
@@ -113,8 +117,8 @@ class ContrastiveFC_Agent(MapAgent):
             (self.save_path / 'rgb_front').mkdir(parents=True, exist_ok=True)             
             (self.save_path / 'lidar').mkdir(parents=True, exist_ok=True)
             (self.save_path / 'measurements').mkdir(parents=True, exist_ok=True)
-            
-            self.start_time = time.time()
+                    
+        self.start_time = time.time()
 
             
     def _init(self):
@@ -127,6 +131,9 @@ class ContrastiveFC_Agent(MapAgent):
         self.cte = 0
         self.autonomy = 0
         self.interventions = 0
+        self.prev_cte = 0 # needed for when vehicle has no waypoint measurements
+        self.collided = False
+        #self.prev_lane_intervention = 0
 
         # Initialize variables for intervention
         self.prev_intervention_time = 0
@@ -142,7 +149,22 @@ class ContrastiveFC_Agent(MapAgent):
         self._target_stop_sign = None # the stop sign affecting the ego vehicle
         self._stop_completed = False # if the ego vehicle has completed the stop sign
         self._affected_by_stop = False # if the ego vehicle is influenced by a stop sign
+        
+        # lane invasion sensor
+        bp = self._world.get_blueprint_library().find('sensor.other.lane_invasion')
+        lane_invasion_sensor = self._world.spawn_actor(bp, carla.Transform(), self._vehicle)
+        weak_self = weakref.ref(self)
+        lane_invasion_sensor.listen(lambda event: ContrastiveFC_Agent._on_invasion(weak_self, event))
 
+    def _on_invasion(weak_self, event):
+        self = weak_self()
+        if not self:
+            return
+        print("Lane invasion occured")
+        #text = ['%r' % str(x).split()[-1] for x in set(event.crossed_lane_markings)]
+        #self._hud.notification('Crossed line %s' % ' and '.join(text))
+
+    
     def _get_angle_to(self, pos, theta, target):
         R = np.array([
             [np.cos(theta), -np.sin(theta)],
@@ -223,59 +245,118 @@ class ContrastiveFC_Agent(MapAgent):
     	distance = np.linalg.norm(ref_wp - vehicle_wp)
     	min_distance = min(distance, min_distance)
     	return min_distance
+    	
+    def has_collided(self, speed):
+    	if speed < 0.1 and self.step > 40:
+    	    return True
+    	else:
+    	    return False
+    	    
+    def is_on_left_lane(self, vehicle_wp, left_wp, right_wp):
+    	vehicle_wp = np.array((vehicle_wp.transform.location.x, vehicle_wp.transform.location.y, vehicle_wp.transform.location.z))
+    	left_wp = np.array((left_wp.transform.location.x, left_wp.transform.location.y, left_wp.transform.location.z))
+    	right_wp = np.array((right_wp.transform.location.x, right_wp.transform.location.y, right_wp.transform.location.z))
+    	print("vehicle_wp {}".format(vehicle_wp))
+    	print("left_wp {}".format(left_wp))
+    	print("right_wp {}".format(right_wp))
+    	dist_left = np.linalg.norm(left_wp - vehicle_wp)
+    	dist_right = np.linalg.norm(right_wp - vehicle_wp)
+    	print("right {} left {}".format(dist_right, dist_left))
+    	if dist_right > dist_left:
+    	    return True
+    	else:
+    	    return False
 
     def run_step(self, input_data, timestamp):
     
-    	#self.start_time = time.time()
+        #print("lane invasion count {}".format(leaderboard.autoagents.agent_wrapper.invaded_lane))
+        if self.step == 0 or self.step == 1:
+    	    self.prev_lane_intervention = 0
+        if self.prev_lane_intervention < leaderboard.autoagents.agent_wrapper.invaded_lane:
+            is_off_lane = True
+            print("Lane intervention occured")	
+            intervened_lane = True
+            self.prev_lane_intervention = leaderboard.autoagents.agent_wrapper.invaded_lane
+        else:
+            intervened_lane = False    
     	
         if not self.initialized:
             self._init()
 
         data = self.tick(input_data)
+        #print("data dict {}".format(data.keys()))
         gps = self._get_position(data)
-
+        
+        #breakpoint()
+        
         near_node, near_command = self._waypoint_planner.run_step(gps)
         far_node, far_command = self._command_planner.run_step(gps)
-
+        
+        # Create collision sensor
+        #if self.collision_sensor is None:
+        #blueprint_library = self._world.get_blueprint_library()
+        #collision_sensor = self._world.spawn_actor(blueprint_library.find('sensor.other.collision'), carla.Transform(), attach_to=self._vehicle)
+        #collision_sensor.listen(lambda event: self.has_collided(event))
+        
+        # Understand steering angles
+        #physics_control = self._vehicle.get_physics_control()
+        #for wheel in physics_control.wheels:
+        #    print(wheel.max_steer_angle)
+        
         # Autopilot steering 
         steer_AP, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
         
-        # RGB and lidar data retrieval and processing
-        # TODO: make sure transforms are consistent with training data transforms
-        #print("Keys:", data.items())
-        #rgb = torch.from_numpy(scale_and_crop_image(Image.fromarray(data['rgb_front']), scale=self.config.scale, crop=self.config.input_resolution)).unsqueeze(0)
-        #lidar_point_cloud = data['lidar']
-        #curr_theta = data['compass']
-        #curr_x, curr_y = data['gps']
-        #lidar_point_cloud[:,1] *= -1 # inverts x, y
-        #print("size lidar:", lidar_point_cloud.shape, lidar_point_cloud[:,:3].shape)
-        #lidar_point_cloud = lidar_point_cloud[:,:3]
-        #print("lidar pcd:", lidar_point_cloud.shape)
-        #lidar_transformed = transform_2d_points(lidar_point_cloud, np.pi/2-curr_theta, -curr_x, -curr_y, np.pi/2-ego_theta, -ego_x, -ego_y)
-        #lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution)).unsqueeze(0) 
-        
+        # Print speed
+        # print("Current speed of vehicle is {}".format(data['speed']))
+       
         # Waypoints of vehicle & reference (center of lane closest to vehicle)
         wp = self._world.get_map().get_waypoint(self._vehicle.get_location(), project_to_road=True, lane_type=(carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk))
         wp_vehicle = self._world.get_map().get_waypoint(self._vehicle.get_location(), project_to_road=False)
-
-        vehicle_wp_array = np.array((wp_vehicle.transform.location.x, wp_vehicle.transform.location.y, wp_vehicle.transform.location.z))
+        
+        # left and right waypoints
+        #if wp_vehicle is not None:
+        #    left_wp = wp_vehicle.get_left_lane()
+        #    right_wp = wp_vehicle.get_right_lane()
+        #    if (left_wp is not None) and (right_wp is not None) and (wp_vehicle is not None):
+        #        is_on_left = self.is_on_left_lane(wp_vehicle, left_wp, right_wp)
+        #    else:
+        #        is_on_left = False
+        #else:
+        #    is_on_left = False
+            
+        if wp_vehicle is not None:
+            vehicle_wp_array = np.array((wp_vehicle.transform.location.x, wp_vehicle.transform.location.y, wp_vehicle.transform.location.z))
+        #    print("vehicle_wp_array {}".format(vehicle_wp_array))
         ref_wp_array = np.array((wp.transform.location.x, wp.transform.location.y, wp.transform.location.z))
+        #print("ref_wp_array {}".format(ref_wp_array))
+        
+        #if is_on_left == True:
+        #    print("IS ON LEFT LANE")
          
         # Determine if autopilot must take over
         if time.time() - self.prev_intervention_time < self.takeovertime:
             self.autopilot = True
-            steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data) 
-        elif (str(wp.lane_type) != 'Driving') or (self.prev_wp == wp):
-            print("Intervention: autopilot taking over")
+            steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
+        elif (self.has_collided(data['speed']) == True) or (self.prev_wp == wp):
+            #print("Collision occured. \n Intervention: autopilot taking over")
+            self.collided = True
             self.interventions += 1
             self.autopilot = True
             steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
+            #print("steer throttle brake are {} {} {}".format(steer,throttle,brake))
             self.prev_intervention_time = time.time()
+        elif (intervened_lane==True) or (wp_vehicle is None) or (str(wp.lane_type) != 'Driving'): #or (is_on_left==True):
+            #print("Intervention: autopilot taking over")
+            self.interventions += 1
+            self.autopilot = True
+            steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
+            self.prev_intervention_time = time.time() 
         else:
             # retrieve rgb and lidar data
-            rgb = torch.from_numpy(scale_and_crop_image(Image.fromarray(data['rgb_front']), scale=self.config.scale, crop=self.config.input_resolution)).unsqueeze(0)
-            lidar_point_cloud = data['lidar']
-            lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=self.config.input_resolution)).unsqueeze(0) 
+            rgb = torch.from_numpy(data['rgb_front']) 
+            rgb = rgb.view(1, rgb.size(2), rgb.size(0), rgb.size(1))
+            lidar_point_cloud = data['lidar'][:,:3]
+            lidar_transformed = torch.from_numpy(lidar_to_histogram_features(lidar_point_cloud, crop=256)).unsqueeze(0) 
             # predict controls
             self.autopilot = False
             throttle = 0
@@ -289,7 +370,7 @@ class ContrastiveFC_Agent(MapAgent):
         control = carla.VehicleControl()
         if self.autopilot == True:
             steer = steer_AP
-            control.steer = steer + 1e-2 * np.random.randn()
+            control.steer = steer
         else:
             control.steer = steer
         control.throttle = throttle
@@ -298,11 +379,18 @@ class ContrastiveFC_Agent(MapAgent):
         #print("step number", self.step)
         
         # Compute cte 
-        self.cte += self.crossTrackErrorNew(vehicle_wp_array, ref_wp_array) # cross track error      
+        if wp_vehicle is None:
+            self.cte += self.prev_cte # add previous cte when car goes out of bounds
+        else:
+            self.prev_cte = self.crossTrackErrorNew(vehicle_wp_array, ref_wp_array)
+            self.cte += self.prev_cte # cross track error      
 
         if self.step % 10 == 0 and self.save_path is not None:
             self.episode_time_len += time.time() - self.start_time # total cumulated simulation runtime
             self.save(far_node, near_command, steer, throttle, brake, target_speed, data)
+
+        # destroy sensor
+        
 
         return control
 
@@ -521,15 +609,15 @@ class ContrastiveFC_Agent(MapAgent):
         
         # Save metrics (cte, autonomy, interventions)
         autonomy = (1 - (self.interventions * self.takeovertime) / self.episode_time_len) * 100
-        print("Autonomy: {}".format(autonomy))
-        print("Result - Number of interventions: {}".format(self.interventions))
-        print("Cross track error:{}".format(self.cte/self.step))
+        #print("Autonomy: {}".format(autonomy))
+        #print("Result - Number of interventions: {}".format(self.interventions))
+        #print("Cross track error:{}".format(self.cte/self.step))
         
         results = "Number of Interventions: {}\n \
         	Autonomy: {}\n \
         	CTE: {}\n".format(self.interventions, autonomy, self.cte/self.step)
         result_filepath = self.save_path /'drive_results.txt'
-        print("Saving results to", result_filepath)
+        #print("Saving results to", result_filepath)
         with open(result_filepath,'w') as fp:
         	fp.write(results)
         fp.close()

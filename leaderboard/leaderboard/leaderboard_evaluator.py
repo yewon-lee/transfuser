@@ -32,6 +32,7 @@ from srunner.scenariomanager.timer import GameTime
 from srunner.scenariomanager.watchdog import Watchdog
 
 from leaderboard.scenarios.scenario_manager import ScenarioManager
+#from leaderboard.scenarios.master_scenario import MasterScenario
 from leaderboard.scenarios.route_scenario import RouteScenario
 from leaderboard.envs.sensor_interface import SensorInterface, SensorConfigurationInvalid
 from leaderboard.autoagents.agent_wrapper import  AgentWrapper, AgentError
@@ -49,7 +50,9 @@ sensors_to_icons = {
     'sensor.other.gnss':        'carla_gnss',
     'sensor.other.imu':         'carla_imu',
     'sensor.opendrive_map':     'carla_opendrive_map',
-    'sensor.speedometer':       'carla_speedometer'
+    'sensor.speedometer':       'carla_speedometer',
+    'sensor.other.collision':	 'carla_collision',
+    'sensor.other.lane_invasion': 'carla_lane_invasion'
 }
 
 
@@ -174,7 +177,7 @@ class LeaderboardEvaluator(object):
                                                                              vehicle.transform,
                                                                              vehicle.rolename,
                                                                              color=vehicle.color,
-                                                                             vehicle_category=vehicle.category))
+                                                                          vehicle_category=vehicle.category))
 
         else:
             ego_vehicle_missing = True
@@ -321,6 +324,15 @@ class LeaderboardEvaluator(object):
             if config.weather.sun_altitude_angle < 0.0:
                 for vehicle in scenario.ego_vehicles:
                     vehicle.set_light_state(carla.VehicleLightState(self._vehicle_lights))
+
+            # Turn all traffic lights green
+            for vehicle_actor in scenario.ego_vehicles:
+                if vehicle_actor.is_at_traffic_light():
+                    traffic_light = vehicle_actor.get_traffic_light()
+                    if traffic_light.get_state() == carla.TrafficLightState.Red:
+                        traffic_light.set_state(carla.TrafficLightState.Green)
+                        #traffic_light.set_set_green_time(4.0)
+    
 
             # Load scenario and run it
             if args.record:
@@ -473,6 +485,7 @@ def main():
     statistics_manager = StatisticsManager()
 
     try:
+        print("here")
         leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
         leaderboard_evaluator.run(arguments)
 

@@ -13,6 +13,7 @@ from __future__ import print_function
 import math
 import os
 import time
+import weakref
 
 import carla
 from srunner.scenariomanager.carla_data_provider import CarlaDataProvider
@@ -36,6 +37,7 @@ SENSORS_LIMITS = {
     'sensor.speedometer': 1
 }
 
+invaded_lane = 0
 
 class AgentError(Exception):
     """
@@ -63,7 +65,8 @@ class AgentWrapper(object):
         'sensor.lidar.ray_cast_semantic',
         'sensor.other.radar',
         'sensor.other.gnss',
-        'sensor.other.imu'
+        'sensor.other.imu',
+        'sensor.other.lane_invasion'
     ]
 
     _agent = None
@@ -74,6 +77,8 @@ class AgentWrapper(object):
         Set the autonomous agent
         """
         self._agent = agent
+        global invaded_lane
+        #self.invaded_lane = 0
 
     def __call__(self):
         """
@@ -99,6 +104,7 @@ class AgentWrapper(object):
                 sensor = SpeedometerReader(vehicle, frame_rate)
             # These are the sensors spawned on the carla world
             else:
+                print("going for {}".format(str(sensor_spec['type'])))
                 bp = bp_library.find(str(sensor_spec['type']))
                 if sensor_spec['type'].startswith('sensor.camera.semantic_segmentation'):
                     bp.set_attribute('image_size_x', str(sensor_spec['width']))
@@ -203,15 +209,46 @@ class AgentWrapper(object):
                                                      roll=sensor_spec['roll'],
                                                      yaw=sensor_spec['yaw'])
                 # create sensor
+                if sensor_spec['type'].startswith('sensor.other.lane_invasion'):
+                    sensor = CarlaDataProvider.get_world().spawn_actor(bp, carla.Transform(), vehicle)
+                else:
+                    sensor_transform = carla.Transform(sensor_location, sensor_rotation)
+                    sensor = CarlaDataProvider.get_world().spawn_actor(bp, sensor_transform, vehicle)
+                    
+            # setup callback
+            if sensor_spec['type'].startswith('sensor.other.lane_invasion'):
+            	#print("hi")
+                weak_self = weakref.ref(self)
+                sensor.listen(lambda event: AgentWrapper._on_invasion(weak_self, event))
+            else:
+                sensor.listen(CallBack(sensor_spec['id'], sensor_spec['type'], sensor, self._agent.sensor_interface))
+            self._sensors_list.append(sensor)
+            """
+                # create sensor
                 sensor_transform = carla.Transform(sensor_location, sensor_rotation)
                 sensor = CarlaDataProvider.get_world().spawn_actor(bp, sensor_transform, vehicle)
             # setup callback
             sensor.listen(CallBack(sensor_spec['id'], sensor_spec['type'], sensor, self._agent.sensor_interface))
             self._sensors_list.append(sensor)
-
+               
+            """            
+            
         # Tick once to spawn the sensors
+        print("Going for a tick")
         CarlaDataProvider.get_world().tick()
+        #print("sensor specs {}".format(sensor_spec))
+        print("Tick finished")
 
+    def _on_invasion(weak_self, event):
+        self = weak_self()
+        if not self:
+            return
+        global invaded_lane
+        invaded_lane += 1
+        print("Lane invasion occured {}".format(invaded_lane))
+        #invaded_lane += 1
+        #text = ['%r' % str(x).split()[-1] for x in set(event.crossed_lane_markings)]
+        #self._hud.notification('Crossed line %s' % ' and '.join(text))
 
     @staticmethod
     def validate_sensor_configuration(sensors, agent_track, selected_track):

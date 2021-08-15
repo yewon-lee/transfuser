@@ -110,11 +110,9 @@ class AutoPilot(MapAgent):
             self.save_path.mkdir(parents=True, exist_ok=True)
 
             for sensor in self.sensors():
-                if 'camera' in sensor['type'] or 'lidar' in sensor['type']:   
-                    if 'map' not in sensor['id']:
-                        (self.save_path / sensor['id']).mkdir(parents=True, exist_ok=True)
-            (self.save_path / 'measurements').mkdir(parents=True, exist_ok=True)
-            (self.save_path / 'topdown').mkdir(parents=True, exist_ok=True)
+            	(self.save_path / 'measurements').mkdir(parents=True, exist_ok=True)
+            	(self.save_path / 'rgb_front').mkdir(parents=True, exist_ok=True)
+            	(self.save_path / 'lidar').mkdir(parents=True, exist_ok=True)
 
             
     def _init(self):

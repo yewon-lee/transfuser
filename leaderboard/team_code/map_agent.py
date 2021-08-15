@@ -17,6 +17,9 @@ class MapAgent(BaseAgent):
             'width': 512, 'height': 512, 'fov': 5 * 10.0,
             'id': 'map'
             })
+        result.append({
+            'type': 'sensor.other.lane_invasion',
+            'id': 'lane_detector'})
 
         return result
 
@@ -39,6 +42,7 @@ class MapAgent(BaseAgent):
 
     def tick(self, input_data):
         self._actors = self._world.get_actors()
+        #print("actors {}".format(self._actors))
         self._traffic_lights = get_nearby_lights(self._vehicle, self._actors.filter('*traffic_light*'))
         self._stop_signs = get_nearby_lights(self._vehicle, self._actors.filter('*stop*'))
 
@@ -48,6 +52,7 @@ class MapAgent(BaseAgent):
 
         result = super().tick(input_data)
         result['topdown'] = topdown
+        #result['lane_invasion'] = 
 
         return result
 
