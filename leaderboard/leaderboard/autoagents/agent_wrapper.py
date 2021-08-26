@@ -38,6 +38,7 @@ SENSORS_LIMITS = {
 }
 
 invaded_lane = 0
+collision_cnt = 0
 
 class AgentError(Exception):
     """
@@ -66,7 +67,8 @@ class AgentWrapper(object):
         'sensor.other.radar',
         'sensor.other.gnss',
         'sensor.other.imu',
-        'sensor.other.lane_invasion'
+        'sensor.other.lane_invasion',
+        'sensor.other.collision'
     ]
 
     _agent = None
@@ -78,6 +80,7 @@ class AgentWrapper(object):
         """
         self._agent = agent
         global invaded_lane
+        global collision_cnt
         #self.invaded_lane = 0
 
     def __call__(self):
@@ -211,6 +214,8 @@ class AgentWrapper(object):
                 # create sensor
                 if sensor_spec['type'].startswith('sensor.other.lane_invasion'):
                     sensor = CarlaDataProvider.get_world().spawn_actor(bp, carla.Transform(), vehicle)
+                elif sensor_spec['type'].startswith('sensor.other.collision'):
+                    sensor = CarlaDataProvider.get_world().spawn_actor(bp, carla.Transform(), vehicle)
                 else:
                     sensor_transform = carla.Transform(sensor_location, sensor_rotation)
                     sensor = CarlaDataProvider.get_world().spawn_actor(bp, sensor_transform, vehicle)
@@ -220,6 +225,9 @@ class AgentWrapper(object):
             	#print("hi")
                 weak_self = weakref.ref(self)
                 sensor.listen(lambda event: AgentWrapper._on_invasion(weak_self, event))
+            elif sensor_spec['type'].startswith('sensor.other.collision'):
+                weak_self = weakref.ref(self)
+                sensor.listen(lambda event: AgentWrapper._on_collision(weak_self, event))
             else:
                 sensor.listen(CallBack(sensor_spec['id'], sensor_spec['type'], sensor, self._agent.sensor_interface))
             self._sensors_list.append(sensor)
@@ -249,6 +257,14 @@ class AgentWrapper(object):
         #invaded_lane += 1
         #text = ['%r' % str(x).split()[-1] for x in set(event.crossed_lane_markings)]
         #self._hud.notification('Crossed line %s' % ' and '.join(text))
+        
+    def _on_collision(weak_self, event):
+        self = weak_self()
+        if not self:
+            return
+        global collision_cnt
+        collision_cnt += 1
+        print("Collision occured {}".format(collision_cnt))
 
     @staticmethod
     def validate_sensor_configuration(sensors, agent_track, selected_track):

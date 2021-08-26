@@ -27,7 +27,8 @@ class ContrastiveLearningModel(nn.Module):
         self.LidarEncoder.fc = nn.Sequential()
         _tmp = self.LidarEncoder.conv1
         self.LidarEncoder.conv1 = nn.Conv2d(in_channels, out_channels=_tmp.out_channels,
-                                            kernel_size=_tmp.kernel_size, stride=_tmp.stride, padding=_tmp.padding,
+                                            kernel_size=_tmp.kernel_size, stride=_tmp.stride, 
+                                            padding=_tmp.padding,
                                             bias=_tmp.bias)
         self.flatten = nn.Sequential(
             nn.Flatten()
@@ -37,8 +38,50 @@ class ContrastiveLearningModel(nn.Module):
         if self.normalize:
             image = normalize_imagenet(image)
         image_ft = self.ImageCNN(image)
+        #print("img ft shape:", image_ft.shape)
         lidar_ft = self.LidarEncoder(lidar)
+        #print("lidar ft shape:",lidar_ft.shape)
         return image_ft, lidar_ft # dims: 512
+        
+class ContrastiveLearningModel_merge(nn.Module):
+    """Contrastive Learning model with merge layer integrated"""
+
+    def __init__(self, num_classes=512, in_channels=2, normalize=True):
+        super().__init__()
+        self.ImageCNN = models.resnet34(pretrained=True)
+        self.ImageCNN.fc = nn.Sequential()
+        self.normalize = normalize
+        self.LidarEncoder = models.resnet18()
+        self.LidarEncoder.fc = nn.Sequential()
+        _tmp = self.LidarEncoder.conv1
+        self.LidarEncoder.conv1 = nn.Conv2d(in_channels, out_channels=_tmp.out_channels,
+                                            kernel_size=_tmp.kernel_size, stride=_tmp.stride,
+                                            padding=_tmp.padding,
+                                            bias=_tmp.bias)
+        self.flatten = nn.Sequential(
+            nn.Flatten()
+        )
+        self.fullyconn = nn.Sequential(
+            nn.Linear(512, 1),
+        )
+        embed_dim = num_classes
+        self.merge = torch.nn.Sequential(
+            torch.nn.BatchNorm1d(2 * embed_dim), torch.nn.ReLU(),
+            torch.nn.Linear(2 * embed_dim, 2 * embed_dim),
+            torch.nn.BatchNorm1d(2 * embed_dim), torch.nn.ReLU(),
+            torch.nn.Linear(2 * embed_dim, embed_dim))
+
+    def forward(self, image, lidar):
+        if self.normalize:
+            image = normalize_imagenet(image)
+        image_ft = self.ImageCNN(image) # dims: 512
+        lidar_ft = self.LidarEncoder(lidar) # dims: 512
+        concat_ft = (image_ft, lidar_ft)
+        concat_ft = torch.cat(concat_ft, dim=1)
+        concat_ft = self.merge(concat_ft)
+        concat_ft = self.flatten(concat_ft)
+
+        return concat_ft
 
 class ImitationLearningModel(nn.Module):
     def __init__ (self, num_classes=512, in_channels=2, normalize=True):
@@ -152,8 +195,6 @@ class ImageCNN(nn.Module):
         return self.features(inputs)
 
 
-
-
 class LidarEncoder(nn.Module):
     """
     Encoder network for LiDAR input list
@@ -217,10 +258,39 @@ class ImitationLearningModel_Contrastive(nn.Module):
         final_ft = self.fullyconn(final_ft)
         return final_ft
 
-class ControlsModel_FC(nn.Module):
+class ControlsModel_linear(nn.Module):
+    """Linear mapping from merged lidar/img ft to steering angle. No merge layer."""
+
     def __init__ (self, contrastive_model, num_classes=512, in_channels=2, normalize=True):
         super().__init__()
         self.normalize = normalize
+        self.contrastive = contrastive_model
+        self.flatten = nn.Sequential(
+                    nn.Flatten()
+                )
+        self.fullyconn = nn.Sequential(
+            nn.Linear(512, 1),
+        )
+
+    def forward(self, image, lidar):
+        if self.normalize:
+            image = normalize_imagenet(image)
+        with torch.no_grad():
+            concat_ft = self.contrastive(image, lidar)
+        steering_angle = self.fullyconn(concat_ft)        
+        return steering_angle
+
+class ControlsModel_FC(nn.Module):
+    def __init__ (self, contrastive_model, num_classes=512, in_channels=2, normalize=True):
+        super().__init__()
+        #self.ImageCNN = models.resnet34(pretrained=True)
+        #self.ImageCNN.fc = nn.Sequential()
+        self.normalize = normalize
+        #self.LidarEncoder = models.resnet18()
+        #self.LidarEncoder.fc = nn.Sequential()
+        #_tmp = self.LidarEncoder.conv1
+        #self.LidarEncoder.conv1 = nn.Conv2d(in_channels, out_channels=_tmp.out_channels, 
+        #    kernel_size=_tmp.kernel_size, stride=_tmp.stride, padding=_tmp.padding, bias=_tmp.bias)
         self.contrastive = contrastive_model
         self.flatten = nn.Sequential(
                     nn.Flatten()

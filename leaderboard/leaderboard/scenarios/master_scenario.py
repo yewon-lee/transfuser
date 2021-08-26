@@ -46,6 +46,7 @@ class MasterScenario(BasicScenario):
         self.route = None
         # Timeout of scenario in seconds
         self.timeout = timeout
+        self.other_actors = []
 
         if hasattr(self.config, 'route'):
             self.route = self.config.route

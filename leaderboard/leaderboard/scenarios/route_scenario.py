@@ -402,6 +402,12 @@ class RouteScenario(BasicScenario):
             try:
                 scenario_instance = scenario_class(world, [ego_vehicle], scenario_configuration,
                                                    criteria_enable=False, timeout=timeout)
+
+                if ego_vehicle.is_at_traffic_light():
+                    traffic_light = vehicle_actor.get_traffic_light()
+                    if traffic_light.get_state() == carla.TrafficLightState.Red:
+                        traffic_light.set_state(carla.TrafficLightState.Green)
+
                 # Do a tick every once in a while to avoid spawning everything at the same time
                 if scenario_number % scenarios_per_tick == 0:
                     if CarlaDataProvider.is_sync_mode():
