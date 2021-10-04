@@ -17,7 +17,8 @@ from team_code.map_agent import MapAgent
 from team_code.pid_controller import PIDController
 from contrastiveFC.data import scale_and_crop_image, transform_2d_points, lidar_to_histogram_features
 from contrastiveFC.config import GlobalConfig
-from contrastiveFC.models import ContrastiveLearningModel_merge, ControlsModel_linear
+from contrastiveFC.models import ContrastiveLearningModel_ImageOnly, ControlsModel_linear_ImageOnly
+#from contrastiveFC.models3 import ImitationLearningModel_ImageOnly
 from leaderboard.autoagents.agent_wrapper import AgentWrapper
 import leaderboard.autoagents.agent_wrapper
 
@@ -92,17 +93,22 @@ class ContrastiveFC_Agent(MapAgent):
         self.config = GlobalConfig()
 
         # Contrastive+FC Model paths
-        cvm_path = '/home/yewon/new-data-dl/models/SemiHardMining_contrastiveLinear_5e5_new/Contrastive40.pt'
-        clm_path = '/home/yewon/new-data-dl/models/SemiHardMining_contrastiveLinear_5e5_new/bestControl.pt'
+        cvm_path = '/home/yewon/new-data-dl/models/ImageOnly_Dense_galap/bestContrastive_valLoss.pt'
+        clm_path = '/home/yewon/new-data-dl/models/ImageOnly_Dense_galap/Control100.pt'
 
         # Load trained models
-        self.net_contrastive = ContrastiveLearningModel_merge().cuda()
+        self.net_contrastive = ContrastiveLearningModel_ImageOnly().cuda()
+        ###self.net_contrastive = torch.nn.DataParallel(self.net_contrastive)
         self.net_contrastive.load_state_dict(torch.load(cvm_path))
-        self.net_contrastive.eval()
         #self.net_contrastive = torch.nn.DataParallel(self.net_contrastive)
-        self.net_controls = ControlsModel_linear(self.net_contrastive).cuda()
+        self.net_contrastive.eval()
+        ##self.net_contrastive = torch.nn.DataParallel(self.net_contrastive)
+        self.net_controls = ControlsModel_linear_ImageOnly(self.net_contrastive).cuda()
+        #self.net_controls = torch.nn.DataParallel(self.net_controls)
         self.net_controls.load_state_dict(torch.load(clm_path))
+        #self.net_controls = torch.nn.DataParallel(self.net_controls)
         self.net_controls.eval()
+        ##self.net_controls = torch.nn.DataParallel(self.net_controls)
         self.prev_lane_intervention = 0
 
         if SAVE_PATH is not None:
@@ -354,8 +360,8 @@ class ContrastiveFC_Agent(MapAgent):
             throttle = 0
             if data['speed'] < 20:
                 throttle = 0.5
-            steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32)).item()
-
+            #steer = self.net_controls(rgb.to('cuda',dtype=torch.float32), lidar_transformed.to('cuda',dtype=torch.float32)).item()
+            steer = self.net_controls(rgb.to('cuda',dtype=torch.float32)).item()
         self.prev_wp = wp
 
         # Assign values to control
@@ -374,7 +380,7 @@ class ContrastiveFC_Agent(MapAgent):
             #    self.autopilot_next = True
             #    print("still reversing")
             if self.has_collided(data['speed']) == True:
-                control.steer = 0.0
+                control.steer = 0.2
                 control.reverse = True
                 self.autopilot_next = True
                 print("starting to reverse")

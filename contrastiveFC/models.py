@@ -43,6 +43,47 @@ class ContrastiveLearningModel(nn.Module):
         #print("lidar ft shape:",lidar_ft.shape)
         return image_ft, lidar_ft # dims: 512
         
+
+class ContrastiveLearningModel_ImageOnly(nn.Module):
+    def __init__(self, num_classes=512, in_channels=2, normalize=True):
+        super().__init__()
+        self.ImageCNN = models.resnet34(pretrained=True)
+        self.ImageCNN.fc = nn.Sequential()
+        self.normalize = normalize
+        self.flatten = nn.Sequential(
+            nn.Flatten()
+        )
+
+    def forward(self, image):
+        if self.normalize:
+            image = normalize_imagenet(image)
+        image_ft = self.ImageCNN(image)
+        return image_ft # dims: 512
+
+class ContrastiveLearningModel_LidarOnly(nn.Module):
+    def __init__(self, num_classes=512, in_channels=2, normalize=True):
+        super().__init__()
+        self.normalize = normalize
+        self.LidarEncoder = models.resnet18()
+        self.LidarEncoder.fc = nn.Sequential()
+        _tmp = self.LidarEncoder.conv1
+        self.LidarEncoder.conv1 = nn.Conv2d(in_channels, out_channels=_tmp.out_channels,
+                                            kernel_size=_tmp.kernel_size, stride=_tmp.stride,
+                                            padding=_tmp.padding,
+                                            bias=_tmp.bias)
+        self.flatten = nn.Sequential(
+            nn.Flatten()
+        )
+        self.fullyconn = nn.Sequential(
+            nn.Linear(512, 1),
+        )
+        embed_dim = num_classes
+        
+    def forward(self, lidar):
+        lidar_ft = self.LidarEncoder(lidar) # dims: 512
+        return lidar_ft
+
+       
 class ContrastiveLearningModel_merge(nn.Module):
     """Contrastive Learning model with merge layer integrated"""
 
@@ -135,12 +176,7 @@ class ImitationLearningModel_ImageOnly(nn.Module):
                     nn.Flatten()
                 )
         self.fullyconn = nn.Sequential(
-            nn.Linear(512, 100),
-            nn.ReLU(True),
-            nn.Dropout(p=0.5),
-            nn.Linear(100, 10),
-            nn.ReLU(True),
-            nn.Linear(10, 1)
+            nn.Linear(512, 1)
         )
     def forward(self, image):
         if self.normalize:
@@ -163,12 +199,7 @@ class ImitationLearningModel_LidarOnly(nn.Module):
                     nn.Flatten()
                 )
         self.fullyconn = nn.Sequential(
-            nn.Linear(512, 100),
-            nn.ReLU(True),
-            nn.Dropout(p=0.5),
-            nn.Linear(100, 10),
-            nn.ReLU(True),
-            nn.Linear(10, 1)
+            nn.Linear(512, 1)
         )
     def forward(self, lidar):
         lidar_ft = self.LidarEncoder(lidar)
@@ -279,6 +310,49 @@ class ControlsModel_linear(nn.Module):
             concat_ft = self.contrastive(image, lidar)
         steering_angle = self.fullyconn(concat_ft)        
         return steering_angle
+        
+class ControlsModel_linear_ImageOnly(nn.Module):
+    """Linear mapping from merged img ft to steering angle. No merge layer."""
+
+    def __init__ (self, contrastive_model, num_classes=512, in_channels=2, normalize=True):
+        super().__init__()
+        self.normalize = normalize
+        self.contrastive = contrastive_model
+        self.flatten = nn.Sequential(
+                    nn.Flatten()
+                )
+        self.fullyconn = nn.Sequential(
+            nn.Linear(512, 1),
+        )
+
+    def forward(self, image):
+        if self.normalize:
+            image = normalize_imagenet(image)
+        with torch.no_grad():
+            img_ft = self.contrastive(image)
+        steering_angle = self.fullyconn(img_ft)        
+        return steering_angle
+
+class ControlsModel_linear_LidarOnly(nn.Module):
+    """Linear mapping from merged lidar ft to steering angle. No merge layer."""
+
+    def __init__ (self, contrastive_model, num_classes=512, in_channels=2, normalize=True):
+        super().__init__()
+        self.normalize = normalize
+        self.contrastive = contrastive_model
+        self.flatten = nn.Sequential(
+                    nn.Flatten()
+                )
+        self.fullyconn = nn.Sequential(
+            nn.Linear(512, 1),
+        )
+
+    def forward(self, lidar):
+        with torch.no_grad():
+            lidar_ft = self.contrastive(image, lidar)
+        steering_angle = self.fullyconn(lidar_ft)        
+        return steering_angle
+ 
 
 class ControlsModel_FC(nn.Module):
     def __init__ (self, contrastive_model, num_classes=512, in_channels=2, normalize=True):
