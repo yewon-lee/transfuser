@@ -295,15 +295,15 @@ class ContrastiveFC_Agent(MapAgent):
             intervened_lane = False  
             
         # Collision check
-        #if self.step == 0 or self.step == 1:
-    	#    self.prev_lane_intervention = 0
-        #if self.prev_lane_intervention < leaderboard.autoagents.agent_wrapper.invaded_lane:
-        #    is_off_lane = True
-        #    print("Lane intervention occured")	
-        #    intervened_lane = True
-        #    self.prev_lane_intervention = leaderboard.autoagents.agent_wrapper.invaded_lane
-        #else:
-        #    intervened_lane = False     
+        if self.step == 0 or self.step == 1:
+    	    self.prev_lane_intervention = 0
+        if self.prev_lane_intervention < leaderboard.autoagents.agent_wrapper.invaded_lane:
+            is_off_lane = True
+            print("Lane intervention occured")	
+            intervened_lane = True
+            self.prev_lane_intervention = leaderboard.autoagents.agent_wrapper.invaded_lane
+        else:
+            intervened_lane = False     
     	
         if not self.initialized:
             self._init()
@@ -345,13 +345,13 @@ class ContrastiveFC_Agent(MapAgent):
         if time.time() - self.prev_intervention_time < self.takeovertime:
             self.autopilot = True
             steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
-		    #elif (self.has_collided(data['speed']) == True) or (self.prev_wp == wp):
-		    #    self.collided = True
-		    #    self.interventions += 1
-		    #    self.autopilot = True
-		    #    steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
-		    #    self.prev_intervention_time = time.time()
-        elif (intervened_lane==True) or (vehicle_pos is None): #or (str(wp.lane_type) != 'Driving') or (junction_offset == True): #or (self.autopilot_next == True): #or (is_on_left==True):
+        elif (self.has_collided(data['speed']) == True) or (self.prev_wp == wp):
+            self.collided = True
+            self.interventions += 1
+            self.autopilot = True
+            steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
+            self.prev_intervention_time = time.time()
+        elif (intervened_lane==True) or (vehicle_pos is None) or (str(wp.lane_type) != 'Driving') or (junction_offset == True): #or (self.autopilot_next == True): #or (is_on_left==True):
             self.interventions += 1
             self.autopilot = True
             steer, throttle, brake, target_speed = self._get_control(near_node, far_node, data)
